@@ -1,5 +1,6 @@
 // -*- mode: C++; c-indent-level: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
+#include <algorithm> // for std::sort
 #include "RcppArmadillo.h"
 // [[Rcpp::depends(RcppArmadillo)]]
 
@@ -9,6 +10,9 @@ public:
     int idx2;
     double dist;
     clusterNode(int i1,int i2,double d):idx1(i1),idx2(i2),dist(d) {}
+    bool operator<(const clusterNode &node) const {//用来排序
+        return this.dist < node.dist;
+    }
 };
 
 class clusterChain {
@@ -29,7 +33,15 @@ public:
         nodes[n].dist = d;
         n++;
     }
-}
+    clusterNode * operator[](int i) {//这样写可能有问题，不太记得了
+        return &nodes[i];
+    }
+
+    void sort(){
+        std::sort(nodes,nodes+nNodes-1);
+        // isOrdered = true;//这里还得写到其他方法再说
+    }
+};
 
 class dubLinkList {//维护活跃结点序号
 private:
@@ -64,6 +76,36 @@ public:
         }
     }
 };
+
+class parentFinder{
+private:
+    int * parent;
+    int n;
+public:
+    parentFinder(int n):n(n) {
+        parent = new int[2*n-1];
+        for(int i=0;i<2*n-1;i++) {
+            parent[i] = 0;
+        }
+    }
+    ~parentFinder() {
+        delete[] parent;
+    }
+
+    int find(int i) {
+        if(parent[i] == 0) {
+            return i;
+        } else {
+            int idx= find(parent[i]);
+            parent[i] = idx;
+            return idx;
+        }
+    }
+
+    void merge(int i1,int i2) {
+        parent[i1]=parent[i2]=n++;
+    }
+}
 
 // 计算两个向量的距离
 
@@ -113,24 +155,24 @@ void clusterMethod1(int n,arma::mat d,clusterChain *chain,int method=0,arma::vec
 
 //根据合并顺序生成聚类结果
 void generateResult(int n,clusterChain *chain,arma::mat result) {
-    int *idx = new int[n];
-    for(int i=0;i<n;i++) {
-        idx[i] = i;
+    if(!chain->isOrdered) {
+        chain->sort();
     }
+    parentFinder *pf = new parentFinder(n);
     for(int i=0;i<n-1;i++) {
-        int i1 = chain->nodes[i].idx1;
-        int i2 = chain->nodes[i].idx2;
-        int i3 = n+i;
-        result(i,0) = i1;
-        result(i,1) = i2;
-        result(i,2) = chain->nodes[i].dist;
-        for(int j=0;j<n;j++) {
-            if(idx[j] == i2) {
-                idx[j] = i3;
-            }
+        clusterNode *node = (*chain)[i];
+        int i1 = pf->find(node->idx1);
+        int i2 = pf->find(node->idx2);
+        if(i1 > i2) {
+            int temp = i1;
+            i1 = i2;
+            i2 = temp;
         }
+        result(i,0) = i1<n?(-i1-1):(i1-n+1);
+        result(i,1) = i2<n?(-i2-1):(i2-n+1);
+        result(i,2) = node->dist;
+        pf->merge(i1,i2);
     }
-    delete[] idx;
 }
 
 
