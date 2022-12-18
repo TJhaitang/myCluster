@@ -51,7 +51,7 @@ public:
         // isOrdered = true;//这里还得写到其他方法再说
     }
 
-    //没有用到，换为其他方法了
+    //没有用到，换为用栈了
     void order(int * nodeSize,int num){//这个方法是为了将聚类结果按照层次结构排列，具体方法可以再理解一下
         struct pos_node{
             int pos;
@@ -149,7 +149,7 @@ public:
     }
 };
 
-class parentFinder{
+class parentFinder{//一颗省内存和时间的树
 private:
     int * parent;
     int n;
@@ -276,7 +276,7 @@ arma::mat generateResult(int n,clusterChain *chain) {
         }
     }
     
-    //这个获取order的方法有一定的问题，暂时先不用，用上面的方法
+    //这个获取order的方法有一定的问题，暂时先不用，用上面的方法，但这种方法应该要快一点
     // struct pos_node{
     //     int pos;
     //     int node;
@@ -351,7 +351,7 @@ arma::mat myCluster(int n,arma::vec D_,int method=0) {//members应该设置默�
 
     arma::mat d=arma::zeros<arma::mat>(n,n);
     for(int i=0;i<n;i++) {//对称矩阵
-        for(int j=0;j<i;j++) {//可以略过这一次赋值，但哪一个更快呢？
+        for(int j=0;j<i;j++) {//可以略过这一次复制，但哪一个更快呢？大抵是直接用arma::vec罢
             d(i,j)=D_(((2*n-j-1)*(j)>>1)+i-j-1);//神奇小转换
             d(j,i)=D_(((2*n-j-1)*(j)>>1)+i-j-1);
             // d(i,j)=((2*n-j-1)*(j)>>1)+i-j-1;
@@ -362,7 +362,7 @@ arma::mat myCluster(int n,arma::vec D_,int method=0) {//members应该设置默�
     switch(method) {
         case 1://这里de了2个小时bug,R下标从1开始
             // start=clock();
-            clusterMethod1(n,&d,chain,method);//这个方法有些耗时
+            clusterMethod1(n,&d,chain,method);//这个方法有些耗时，在循环部分可以进一步优化
             // finish=clock();
             break;
         default:
@@ -374,6 +374,7 @@ arma::mat myCluster(int n,arma::vec D_,int method=0) {//members应该设置默�
     // result(n-1,0)=median-start;
     // result(n-1,1)=finish-median;
     // result(n-1,2)=clock()-start;
-    return generateResult(n,chain);
 
+    //直接return是否会节省一次复制构造的时间？
+    return generateResult(n,chain);
 } 
