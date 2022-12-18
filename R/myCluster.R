@@ -5,22 +5,41 @@ hclust <- function(d,method="single",members=NULL){
         stop("method must be one of ",paste(METHODS,collapse=", "))
     }
     #输入一个对称矩阵
+    s=proc.time()
     tryCatch({
-        d=as.matrix(d)
+        dd=as.matrix(d)#若不是回头狠狠测试，谁会想到这一句占据了75%的运行时间呢
     },error=function(e){
         stop("d must be a distance matrix")
     })
-    if(!is.matrix(d)){
+    print(proc.time()-s)
+    output=myCluster(dd,method)
+    if(!is.matrix(dd)){
         stop("d must be a distance matrix")
     }
-
-    output=myCluster(d,method)
+    s=proc.time()
     #output:
-    #output$merge1
-    #output$merge2
-    #output$height
-    #output$order--?
+    #前两列为merge
+    #第三列为height
+    #第四列为order
 
-    #这里需要再处理一下输出
+    #将输出转换成hclust的输出
+    result=list()
+    #取output的前两列n-1行作为result$merge
+    result$merge=output[1:(nrow(dd)-1),1:2]
+    #取output的第三列n-1行作为result$height
+    result$height=output[1:(nrow(dd)-1),3]
+    #取output的第四列n行作为result$order
+    result$order=output[,4]
+
+    result=c(result,
+        list(
+            labels=attr(d,"labels"),
+            method=METHODS[method],
+            call=match.call(),
+            dist.method=attr(d,"method")
+        )
+    )
+    class(result)="hclust"
+    print(proc.time()-s)
     return(output)
 }

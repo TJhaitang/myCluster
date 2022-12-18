@@ -1,7 +1,7 @@
-generateTestMatrix = function()
+generateTestMatrix = function(n=10)
 {
-    x=runif(10)
-    y=runif(10)
+    x=runif(n)
+    y=runif(n)
     s=cbind(x,y)
     out=dist(s)
     return(out)

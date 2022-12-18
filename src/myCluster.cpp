@@ -1,8 +1,11 @@
 // -*- mode: C++; c-indent-level: 4; c-basic-offset: 4; indent-tabs-mode: nil; -*-
 
 #include <algorithm> // for std::sort
+#include <bits/types/clock_t.h>
 #include <cstddef>
 #include <limits> // for std::numeric_limits
+#include <stack>
+#include <ctime>
 #include "RcppArmadillo.h"
 // [[Rcpp::depends(RcppArmadillo)]]
 
@@ -48,6 +51,7 @@ public:
         // isOrdered = true;//这里还得写到其他方法再说
     }
 
+    //没有用到，换为其他方法了
     void order(int * nodeSize,int num){//这个方法是为了将聚类结果按照层次结构排列，具体方法可以再理解一下
         struct pos_node{
             int pos;
@@ -181,8 +185,14 @@ public:
 //     算法来源:
 //     F. James Rohlf, Hierarchical clustering using the minimum spanning tree,
 //     The Computer Journal, vol. 16, 1973, p. 93–95.
-void clusterMethod1(int n,arma::mat d,clusterChain *chain,int method=0){
+clock_t clusterMethod1(int n,arma::mat * d,clusterChain *chain,int method=0){
+    //复制arma::mat花费了很长的时间
+    //于是乎我直接改为使用指针
+    //喜，速度提升了40%
+    
     //建立双向链表存储未聚类的点
+    clock_t test = clock();
+    clock_t sum1 = 0;
     dubLinkList *list = new dubLinkList(n);
     //建立一个数组存储每个点的最短距离
     double *tempDist = new double[n];
@@ -191,7 +201,7 @@ void clusterMethod1(int n,arma::mat d,clusterChain *chain,int method=0){
     int i2 = 1;
     double minDist = std::numeric_limits<double>::infinity();
     for(int i=1;i<n;i++) {
-        tempDist[i] = d(i1,i);
+        tempDist[i] = (*d)(i1,i);
         if(tempDist[i] < minDist) {
             minDist = tempDist[i];
             i2 = i;
@@ -199,14 +209,15 @@ void clusterMethod1(int n,arma::mat d,clusterChain *chain,int method=0){
     }
     chain->addNode(i1,i2,minDist);
     list->remove(i2);
+    // clock_t median = clock();
     // //开始迭代
     for(int i=2;i<n;i++) {
         i1 = i2;
         i2 = list->succ(0);
         minDist = tempDist[i2];
         for(int j=i2;j!=-1;j=list->succ(j)) {
-            if(d(i1,j) < tempDist[j]) {
-                tempDist[j] = d(i1,j);
+            if((*d)(i1,j) < tempDist[j]) {
+                tempDist[j] = (*d)(i1,j);
             }
             if(tempDist[j] < minDist) {
                 minDist = tempDist[j];
@@ -219,7 +230,10 @@ void clusterMethod1(int n,arma::mat d,clusterChain *chain,int method=0){
     // delete[] tempDist;
     // delete list;
     chain->isOrdered = false;
+    sum1+=clock()-test;
+    return test;
 }
+
 
 //根据合并顺序生成聚类结果
 arma::mat generateResult(int n,clusterChain *chain) {
@@ -228,7 +242,7 @@ arma::mat generateResult(int n,clusterChain *chain) {
         chain->sort();
     }
     parentFinder *pf = new parentFinder(n);
-    int * nodeSize = new int[n-1];
+    // int nodeSize[n]={0};
     for(int i=0;i<n-1;i++) {
         clusterNode *node = (*chain)[i];
         int i1 = pf->find(node->idx1);//将元素间的合并转化为类之间的合并
@@ -238,58 +252,81 @@ arma::mat generateResult(int n,clusterChain *chain) {
             i1 = i2;
             i2 = temp;
         }
-        node->idx1 = i1<n?(-i1-1):(i1-n+1);
-        node->idx2 = i2<n?(-i2-1):(i2-n+1);
-        pf->merge(i1,i2);
-        nodeSize[i]=(i1<n?1:nodeSize[i-n])+(i2<n?1:nodeSize[i-n]);
-    }
-    // chain->order(nodeSize,n);
-    for(int i=0;i<n-1;i++) {
-        clusterNode *node = (*chain)[i];
-        result(i,0) = node->idx1;
-        result(i,1) = node->idx2;
+        result(i,0) = i1<n?(-i1-1):(i1-n+1);
+        result(i,1) = i2<n?(-i2-1):(i2-n+1);
         result(i,2) = node->dist;
+        pf->merge(i1,i2);
+        // nodeSize[i]=(i1<n?1:nodeSize[i-n])+(i2<n?1:nodeSize[i-n]);
     }
-    struct pos_node{
-        int pos;
-        int node;
-    };
-    pos_node *pos_nodes = new pos_node[n];
-    pos_nodes[0].pos = 0;
-    pos_nodes[0].node = n-2;
-    int idx=1,parent=0,child=0,pos=0;
-    do{
-        idx-=1;
-        parent = pos_nodes[idx].node;
-        pos = pos_nodes[idx].pos;
-        child = chain->nodes[parent].idx1;
-        // if(nodeSize[child] > 1) {
-        //     pos_nodes[idx].pos = pos+1;
-        //     pos_nodes[idx].node = child;
-        //     idx+=1;
-        // } else {
-        //     nodes[child].idx1 = pos;
-        // }
-        if(child<0){
-            result(pos,3) = -child;
-            pos+=1;
+
+    //使用栈实现深度优先遍历(可以进一步优化，因为左孩子一定比右孩子小，左孩子不是叶子节点的话，右孩子一定不是叶子节点)
+    //深度优先遍历保证节点按此顺序画出来的二叉树没有交叉(吧)
+    int pos=0;
+    std::stack<int> s;
+    s.push(n-1);//此节点的编号为n-1，位置为n-2
+    while(!s.empty()) {
+        int node = s.top();
+        s.pop();
+        if(node < 0) {
+            result(pos,3) = -node;
+            pos++;
+        } else {
+            s.push(result(node-1,1));
+            s.push(result(node-1,0));
         }
-        else{
-            pos_nodes[idx].pos = pos;
-            pos_nodes[idx].node = child-1;
-            idx+=1;
-            pos+=nodeSize[child-1];
-        }
-        child = chain->nodes[parent].idx2;
-        if(child<0){
-            result(pos,3) = -child;
-        }
-        else{
-            pos_nodes[idx].pos = pos;
-            pos_nodes[idx]. node = child-1;
-            idx+=1;
-        }
-    }while(idx>0);
+    }
+    
+    //这个获取order的方法有一定的问题，暂时先不用，用上面的方法
+    // struct pos_node{
+    //     int pos;
+    //     int node;
+    // };
+    // int count=0;
+    // pos_node *pos_nodes = new pos_node[n];
+    // pos_nodes[0].pos = 0;
+    // pos_nodes[0].node = n-2;
+    // int idx=1,parent=0,child=0,pos=0;
+    // do{
+    //     idx-=1;
+    //     parent = pos_nodes[idx].node;
+    //     pos = pos_nodes[idx].pos;
+    //     //left child
+    //     child = result(parent,0);
+    //     // if(nodeSize[child] > 1) {
+    //     //     pos_nodes[idx].pos = pos+1;
+    //     //     pos_nodes[idx].node = child;
+    //     //     idx+=1;
+    //     // } else {
+    //     //     nodes[child].idx1 = pos;
+    //     // }
+    //     if(child<0){
+    //         // result(pos,3) = -child;
+    //         result(count,3)=pos;
+    //         result(count,4)=-child;
+    //         count+=1;
+
+    //         pos+=1;
+    //     }
+    //     else{
+    //         pos_nodes[idx].pos = pos;
+    //         pos_nodes[idx].node = child-1;
+    //         idx+=1;
+    //         pos+=nodeSize[child-1];
+    //     }
+    //     child = result(parent,1);
+    //     if(child<0){
+    //         // result(pos,3) = -child;
+    //         result(count,3)=pos;
+    //         result(count,4)=-child;
+    //         count+=1;
+    //     }
+    //     else{
+    //         pos_nodes[idx].pos = pos;
+    //         pos_nodes[idx]. node = child-1;
+    //         idx+=1;
+    //     }
+    // }while(idx>0);
+
     delete chain;
     return result;
 }
@@ -299,16 +336,24 @@ arma::mat generateResult(int n,clusterChain *chain) {
 // [[Rcpp::export]]
 arma::mat myCluster(arma::mat d,int method=0) {//members应该设置默认为空
     // 初始化
+    clock_t start,median,finish;
+    start=clock();
     int n = d.n_rows;
     clusterChain *chain = new clusterChain(n-1);
     switch(method) {
         case 1://这里de了2个小时bug,R下标从1开始
-            clusterMethod1(n,d,chain,method);
+            start=clock();
+            median=clusterMethod1(n,&d,chain,method);//这个方法相当耗时
+            finish=clock();
             break;
         default:
             break;
     }
     // 生成结果
-    return generateResult(n,chain);
+    arma::mat result=generateResult(n,chain);
+    result(n-1,0)=median-start;
+    result(n-1,1)=finish-median;
+    result(n-1,2)=clock()-start;
+    return result;
 
 } 
