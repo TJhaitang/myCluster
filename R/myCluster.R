@@ -1,9 +1,6 @@
 hclust <- function(d,method="single",members=NULL){
     METHODS=c("single", "complete", "average", "mcquitty", "ward.D", "centroid", "median", "ward.D2")
     method=pmatch(method,METHODS)
-    if(is.null(members)){
-        stop("members must be specified")
-    }
     if(method==-1){
         stop("method must be one of ",paste(METHODS,collapse=", "))
     }
@@ -17,7 +14,7 @@ hclust <- function(d,method="single",members=NULL){
         stop("d must be a distance matrix")
     }
 
-    output=myCluster(d,method,members)
+    output=myCluster(d,method)
     #output:
     #output$merge1
     #output$merge2
