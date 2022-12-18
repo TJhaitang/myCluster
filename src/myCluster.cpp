@@ -334,26 +334,46 @@ arma::mat generateResult(int n,clusterChain *chain) {
 
 // 返回一个包含merge,height的mat
 // [[Rcpp::export]]
-arma::mat myCluster(arma::mat d,int method=0) {//members应该设置默认为空
+arma::mat myCluster(int n,arma::vec D_,int method=0) {//members应该设置默认为空
     // 初始化
-    clock_t start,median,finish;
-    start=clock();
-    int n = d.n_rows;
+    // clock_t start,median,finish;
+    // start=clock();
+
+    // PROTECT(D_ = AS_NUMERIC(D_));//这种方法失败了，以后再研究为什么吧
+    // const double *D = NUMERIC_POINTER(D_);
+    // arma::mat d=arma::zeros<arma::mat>(n,n);
+    // for(int i=0;i<n;i++) {//对称矩阵
+    //     for(int j=0;j<i;j++) {
+    //         d(i,j)=D[(2*n-3-j)*j>>1+i-1];//神奇小转换
+    //         d(j,i)=D[(2*n-3-j)*j>>1+i-1];
+    //     }
+    // }
+
+    arma::mat d=arma::zeros<arma::mat>(n,n);
+    for(int i=0;i<n;i++) {//对称矩阵
+        for(int j=0;j<i;j++) {//可以略过这一次赋值，但哪一个更快呢？
+            d(i,j)=D_(((2*n-j-1)*(j)>>1)+i-j-1);//神奇小转换
+            d(j,i)=D_(((2*n-j-1)*(j)>>1)+i-j-1);
+            // d(i,j)=((2*n-j-1)*(j)>>1)+i-j-1;
+        }
+    }
+
     clusterChain *chain = new clusterChain(n-1);
     switch(method) {
         case 1://这里de了2个小时bug,R下标从1开始
-            start=clock();
-            median=clusterMethod1(n,&d,chain,method);//这个方法相当耗时
-            finish=clock();
+            // start=clock();
+            clusterMethod1(n,&d,chain,method);//这个方法有些耗时
+            // finish=clock();
             break;
         default:
             break;
     }
     // 生成结果
-    arma::mat result=generateResult(n,chain);
-    result(n-1,0)=median-start;
-    result(n-1,1)=finish-median;
-    result(n-1,2)=clock()-start;
-    return result;
+    // arma::mat result=generateResult(n,chain);
+
+    // result(n-1,0)=median-start;
+    // result(n-1,1)=finish-median;
+    // result(n-1,2)=clock()-start;
+    return generateResult(n,chain);
 
 } 

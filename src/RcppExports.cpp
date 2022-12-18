@@ -12,20 +12,21 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // myCluster
-arma::mat myCluster(arma::mat d, int method);
-RcppExport SEXP _myCluster_myCluster(SEXP dSEXP, SEXP methodSEXP) {
+arma::mat myCluster(int n, arma::vec D_, int method);
+RcppExport SEXP _myCluster_myCluster(SEXP nSEXP, SEXP D_SEXP, SEXP methodSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type d(dSEXP);
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< arma::vec >::type D_(D_SEXP);
     Rcpp::traits::input_parameter< int >::type method(methodSEXP);
-    rcpp_result_gen = Rcpp::wrap(myCluster(d, method));
+    rcpp_result_gen = Rcpp::wrap(myCluster(n, D_, method));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_myCluster_myCluster", (DL_FUNC) &_myCluster_myCluster, 2},
+    {"_myCluster_myCluster", (DL_FUNC) &_myCluster_myCluster, 3},
     {NULL, NULL, 0}
 };
 
