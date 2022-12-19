@@ -1,5 +1,5 @@
 hclust <- function(d,method="single",members=NULL){
-    METHODS=c("single", "complete", "average", "mcquitty", "ward.D", "centroid", "median", "ward.D2")
+    METHODS=c("single", "complete", "average", "mcquitty", "ward.D", "centroid", "median")
     method=pmatch(method,METHODS)
     if(method==-1){
         stop("method must be one of ",paste(METHODS,collapse=", "))

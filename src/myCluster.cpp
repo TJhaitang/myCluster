@@ -182,9 +182,6 @@ public:
 // 计算两个向量的距离
 
 // 使用最短距离法进行聚类
-//     算法来源:
-//     F. James Rohlf, Hierarchical clustering using the minimum spanning tree,
-//     The Computer Journal, vol. 16, 1973, p. 93–95.
 clock_t clusterMethod1(int n,arma::mat * d,clusterChain *chain,int method=0){
     //复制arma::mat花费了很长的时间
     //于是乎我直接改为使用指针
@@ -211,7 +208,7 @@ clock_t clusterMethod1(int n,arma::mat * d,clusterChain *chain,int method=0){
     list->remove(i2);
     // clock_t median = clock();
     // //开始迭代
-    for(int i=2;i<n;i++) {
+    for(int i=2;i<n;i++) {//Prim算法
         i1 = i2;
         i2 = list->succ(0);
         minDist = tempDist[i2];
